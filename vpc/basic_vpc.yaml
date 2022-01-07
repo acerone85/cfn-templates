@@ -1,0 +1,477 @@
+Description: Three tiered VPC Infrastructure
+Parameters: 
+  vpcName:
+    Type: String
+    Description: Name of the VPC
+    Default: vpc
+
+  tier1Name:
+    Type: String
+    Description: Tier 1 suffix (Public - internet facing)
+    Default: 'PUBLIC'
+    ConstraintDescription: 'Internet facing services will be placed in this tier(Load balancer, Nat Gateways, etc...)'
+
+  tier2Name:
+    Type: String
+    Description: Tier 2 suffix (Private - application tier) suffix
+    Default: 'APP'
+    ConstraintDescription: 'Infrastructure for application services will be placed in this tier (EC2 instances, VPC Lambda functions, etc...)'
+
+  tier3Name:
+    Type: String
+    Description: Tier 3 suffix (Private - data tier) 
+    Default: 'DATA'
+    ConstraintDescription: 'Infrastructure for data storage services will be placed in this tier (RDS, etc...)'
+
+  tier3Name:
+    Type: String
+    Description: Tier 3 ()
+  
+  vpcCidr:
+    Type: String
+    Description: VPC CIDR - Format x.x.x.x/x
+    Default: 10.0.0.0/16
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
+    MinLength: 9
+    MaxLength: 18
+    ConstraintDescription: Must be a valid IP CIDR range of the form x.x.x.x/x
+  
+  numAZs:
+    Type: String
+    Default: 2
+    Description: Number of subnets for each tier
+    AllowedValues:
+    - 1
+    - 2
+    - 3
+
+  az1PublicCidr:
+    Type: String
+    Description: AZ 1 Public subnet CIDR - Format x.x.x.x/x
+    Default: 10.0.0.0/24
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
+    MinLength: 9
+    MaxLength: 18
+    ConstraintDescription: Must be a valid IP CIDR range contained within the VPC CIDR range
+
+  az1PrivateCidr:
+    Type: String
+    Description: AZ 1 Private subnet CIDR - Format x.x.x.x/x
+    Default: 10.0.1.0/24
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
+    MinLength: 9
+    MaxLength: 18
+    ConstraintDescription: Must be a valid IP CIDR range contained within the VPC CIDR range
+
+  az1DatabaseCidr:
+    Type: String
+    Description: AZ 1 Database subnet CIDR - Format x.x.x.x/x
+    Default: 10.0.2.0/24
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
+    MinLength: 9
+    MaxLength: 18
+    ConstraintDescription: Must be a valid IP CIDR range contained within the VPC CIDR range
+
+  az2PublicCidr:
+    Type: String
+    Description: AZ 2 Public subnet CIDR - Format x.x.x.x/x
+    Default: 10.0.3.0/24
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
+    MinLength: 9
+    MaxLength: 18
+    ConstraintDescription: Must be a valid IP CIDR range contained within the VPC CIDR range
+
+  az2PrivateCidr:
+    Type: String
+    Description: AZ 2 Private subnet CIDR - Format x.x.x.x/x
+    Default: 10.0.4.0/24
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
+    MinLength: 9
+    MaxLength: 18
+    ConstraintDescription: Must be a valid IP CIDR range contained within the VPC CIDR range
+
+  az2DatabaseCidr:
+    Type: String
+    Description: AZ 2 Database subnet CIDR - Format x.x.x.x/x
+    Default: 10.0.5.0/24
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
+    MinLength: 9
+    MaxLength: 18
+    ConstraintDescription: Must be a valid IP CIDR range contained within the VPC CIDR range
+
+  az3PublicCidr:
+    Type: String
+    Description: AZ 3 Public subnet CIDR - Format x.x.x.x/x
+    Default: 10.0.6.0/24
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
+    MinLength: 9
+    MaxLength: 18
+    ConstraintDescription: Must be a valid IP CIDR range contained within the VPC CIDR range
+
+  az3PrivateCidr:
+    Type: String
+    Description: AZ 3 Private subnet CIDR - Format x.x.x.x/x
+    Default: 10.0.7.0/24
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
+    MinLength: 9
+    MaxLength: 18
+    ConstraintDescription: Must be a valid IP CIDR range contained within the VPC CIDR range
+
+  az3DatabaseCidr:
+    Type: String
+    Description: AZ 3 Database subnet CIDR - Format x.x.x.x/x
+    Default: 10.0.8.0/24
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
+    MinLength: 9
+    MaxLength: 18
+    ConstraintDescription: Must be a valid IP CIDR range contained within the VPC CIDR range
+
+Conditions:
+  createAZ2: !Or [ !Equals [ !Ref numAZs, 2], !Equals [ !Ref numAZs, 3 ] ]
+  createAZ3: !Equals [ !Ref numAZs, 3 ]
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref vpcCidr
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+      - Key: Name
+        Value: !Sub '${vpcName}'
+
+  internetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties: 
+      Tags:
+      - Key: Name
+        Value: !Sub '${vpcName}-IGW'
+
+  internetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref internetGateway
+      VpcId: !Ref VPC
+
+  # Subnet 1
+
+  az1PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref 'az1PublicCidr'
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select [0, !GetAZs ]
+      Tags:
+      - Key: Name
+        Value: !Sub '${vpcName}-${tier1Name}-A'
+
+  az1PrivateSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref 'az1PrivateCidr'
+      AvailabilityZone: !Select [0, !GetAZs ]
+      Tags:
+      - Key: Name
+        Value: !Sub '${vpcName}-${tier2Name}-A'
+
+  az1DatabaseSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref 'az1DatabaseCidr'
+      AvailabilityZone: !Select [0, !GetAZs ]
+      Tags:
+      - Key: Name
+        Value: !Sub '${vpcName}-${tier3Name}-A'
+
+  # Subnet 2
+
+  az2PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Condition: createAZ2
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !If [ createAZ2, !Ref az2PublicCidr, !Ref AWS::NoValue ]
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select [1, !GetAZs ]
+      Tags:
+      - Key: Name
+        Value: !Sub '${vpcName}-${tier1Name}-B'
+
+  az2PrivateSubnet:
+    Type: AWS::EC2::Subnet
+    Condition: createAZ2
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !If [ createAZ2, !Ref az2PrivateCidr, !Ref AWS::NoValue ]
+      AvailabilityZone: !Select [1, !GetAZs ]
+      Tags:
+      - Key: Name
+        Value: !Sub '${vpcName}-${tier2Name}-B'
+
+  az2DatabaseSubnet:
+    Type: AWS::EC2::Subnet
+    Condition: createAZ2
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !If [ createAZ2, !Ref az2DatabaseCidr, !Ref AWS::NoValue ]
+      AvailabilityZone: !Select [1, !GetAZs ]
+      Tags:
+      - Key: Name
+        Value: !Sub '${vpcName}-${tier3Name}-B'
+
+  # Subnet 3
+
+  az3PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Condition: createAZ3
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !If [ createAZ3, !Ref az3PublicCidr, !Ref AWS::NoValue ]
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select [2, !GetAZs ]
+      Tags:
+      - Key: Name
+        Value: !Sub '${vpcName}-${tier1Name}-C'
+
+  az3PrivateSubnet:
+    Type: AWS::EC2::Subnet
+    Condition: createAZ3
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !If [ createAZ3, !Ref az3PrivateCidr, !Ref AWS::NoValue ]
+      AvailabilityZone: !Select [2, !GetAZs ]
+      Tags:
+      - Key: Name
+        Value: !Sub '${vpcName}-${tier2Name}-C'
+
+  az3DatabaseSubnet:
+    Type: AWS::EC2::Subnet
+    Condition: createAZ3
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !If [ createAZ3, !Ref az3DatabaseCidr, !Ref AWS::NoValue ]
+      AvailabilityZone: !Select [2, !GetAZs ]
+      Tags:
+      - Key: Name
+        Value: !Sub '${vpcName}-${tier3Name}-C'
+
+  #Route tables - Subnet 1
+
+  az1PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    DependsOn: internetGatewayAttachment
+    Properties: 
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: !Sub '${vpcName}-${tier1Name}-A-routeTable'
+
+  az1PublicRouteInternetGateway: 
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref internetGateway
+      RouteTableId: !Ref az1PublicRouteTable
+
+  az1PublicRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref az1PublicRouteTable
+      SubnetId: !Ref az1PublicSubnet
+
+  az1PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties: 
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: !Sub '${vpcName}-${tier2Name}-A-routeTable'
+
+  az1PrivateRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref az1PrivateRouteTable
+      SubnetId: !Ref az1PrivateSubnet
+  
+  az1DatabaseRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties: 
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: !Sub '${vpcName}-${tier3Name}-A-routeTable'
+
+  az1DatabaseRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref az1DatabaseRouteTable
+      SubnetId: !Ref az1DatabaseSubnet
+
+  #Route tables - Subnet 2
+
+  az2PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    DependsOn: internetGatewayAttachment
+    Condition: createAZ2
+    Properties: 
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: !Sub '${vpcName}-${tier1Name}-B-routeTable'
+
+  az2PublicRouteInternetGateway: 
+    Type: AWS::EC2::Route
+    Condition: createAZ2
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref internetGateway
+      RouteTableId: !Ref az2PublicRouteTable
+
+  az2PublicRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Condition: createAZ2
+    Properties:
+      RouteTableId: !Ref az2PublicRouteTable
+      SubnetId: !Ref az2PublicSubnet
+
+  az2PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Condition: createAZ2
+    Properties: 
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: !Sub '${vpcName}-${tier2Name}-B-routeTable'
+
+  az2PrivateRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Condition: createAZ2
+    Properties:
+      RouteTableId: !Ref az2PrivateRouteTable
+      SubnetId: !Ref az2PrivateSubnet
+  
+  az2DatabaseRouteTable:
+    Type: AWS::EC2::RouteTable
+    Condition: createAZ2
+    Properties: 
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: !Sub '${vpcName}-${tier3Name}-B-routeTable'
+
+  az2DatabaseRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Condition: createAZ2
+    Properties:
+      RouteTableId: !Ref az2DatabaseRouteTable
+      SubnetId: !Ref az2DatabaseSubnet
+
+  #Route tables - Subnet 3
+
+  az3PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    DependsOn: internetGatewayAttachment
+    Condition: createAZ3
+    Properties: 
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: !Sub '${vpcName}-${tier1Name}-C-routeTable'
+
+  az3PublicRouteInternetGateway: 
+    Type: AWS::EC2::Route
+    Condition: createAZ3
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref internetGateway
+      RouteTableId: !Ref az3PublicRouteTable
+
+  az3PublicRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Condition: createAZ3
+    Properties:
+      RouteTableId: !Ref az3PublicRouteTable
+      SubnetId: !Ref az3PublicSubnet
+
+  az3PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Condition: createAZ3
+    Properties: 
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: !Sub '${vpcName}-${tier2Name}-C-routeTable'
+
+  az3PrivateRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Condition: createAZ3
+    Properties:
+      RouteTableId: !Ref az3PrivateRouteTable
+      SubnetId: !Ref az3PrivateSubnet
+  
+  az3DatabaseRouteTable:
+    Type: AWS::EC2::RouteTable
+    Condition: createAZ3
+    Properties: 
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: !Sub '${vpcName}-${tier3Name}-C-routeTable'
+
+  az3DatabaseRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Condition: createAZ3
+    Properties:
+      RouteTableId: !Ref az3DatabaseRouteTable
+      SubnetId: !Ref az3DatabaseSubnet
+
+Outputs:
+  VPC:
+    Description: 'VPC'
+    Value: !Ref VPC
+
+  az1Tier1Subnet: 
+    Description: 'Tier 1 Subnet A'
+    Value:  !Ref az1PublicSubnet
+
+  az1Tier2Subnet: 
+    Description: 'Tier 2 Subnet A'
+    Value:  !Ref az1PrivateSubnet
+
+  az1Tier3Subnet: 
+    Description: 'Tier 3 Subnet A'
+    Value:  !Ref az1DatabaseSubnet
+
+  az2Tier1Subnet: 
+    Description: 'Tier 1 Subnet B'
+    Condition: createAZ2
+    Value:  !Ref az2PublicSubnet
+
+  az2Tier2Subnet: 
+    Description: 'Tier 2 Subnet B'
+    Condition: createAZ2
+    Value:  !Ref az2PrivateSubnet
+
+  az2Tier3Subnet: 
+    Description: 'Tier 3 Subnet B'
+    Condition: createAZ2
+    Value:  !Ref az2DatabaseSubnet
+
+  az3Tier1Subnet: 
+    Description: 'Tier 1 Subnet C'
+    Condition: createAZ3
+    Value:  !Ref az3PublicSubnet
+
+  az3Tier2Subnet: 
+    Description: 'Tier 2 Subnet C'
+    Condition: createAZ3
+    Value:  !Ref az3PrivateSubnet
+
+  az3Tier3Subnet: 
+    Description: 'Tier 3 Subnet C'
+    Condition: createAZ3
+    Value:  !Ref az3DatabaseSubnet

@@ -1,0 +1,132 @@
+Description: Add SSM capabilities to a VPC
+Parameters:
+  numAZs:
+    Description: 'the number of Availability zones for the VPC endpoints'
+    Type: String
+    Default: 2
+    AllowedValues:
+    - 1
+    - 2
+    - 3
+
+  vpcId:
+    Description: 'The VPC Id where to enable SSM endpoints'
+    Type: AWS::EC2::VPC::Id
+
+  subnet1:
+    Description: 'The 1st subnet where to create the cloudformation resources, must be in vpcId'
+    Type: AWS::EC2::Subnet::Id
+
+  subnet2:
+    Description: 'The 2nd subnet where to create the cloudformation resources'
+    Type: AWS::EC2::Subnet::Id
+    ConstraintDescription: 'must be in vpcId'
+
+  subnet3:
+    Description: 'The 3rd subnet where to create the cloudformation resources'
+    Type: AWS::EC2::Subnet::Id
+    ConstraintDescription: 'must be in vpcId'
+
+Conditions:
+  uses2Subnets: !Or [ !Equals [ !Ref numAZs, 2 ], !Equals [ !Ref numAZs, 3 ] ]
+  uses3Subnets: !Equals [ !Ref numAZs, 3 ]
+
+Resources:
+  telnetSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: 'Allows inbound and outbound traffic on TCP port 443'
+      GroupName: !Sub '${vpcId}-telnetSecurityGroup'
+      VpcId: !Ref vpcId
+
+  egressSecurityGroupRule:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      CidrIp: 0.0.0.0/0
+      Description: 'Outbound access on port 443'
+      FromPort: 443
+      ToPort: 443
+      GroupId: !Ref telnetSecurityGroup
+      IpProtocol: tcp
+
+  ingressSecurityGroupRule:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      CidrIp: 0.0.0.0/0
+      Description: 'Inbound access on port 443'
+      FromPort: 443
+      ToPort: 443
+      GroupId: !Ref telnetSecurityGroup
+      IpProtocol: tcp
+
+  ssmEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      PrivateDnsEnabled: true
+      SecurityGroupIds:
+      - !Ref telnetSecurityGroup
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.ssm'
+      SubnetIds: 
+        !If 
+        - uses3Subnets
+        - [ !Ref subnet1, !Ref subnet2, !Ref subnet3 ]
+        - !If
+          - uses2Subnets
+          - [ !Ref subnet1, !Ref subnet2 ]
+          - [ !Ref subnet1 ]
+      VpcId: !Ref vpcId
+      VpcEndpointType: Interface
+
+  ssmmessagesEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      PrivateDnsEnabled: true
+      SecurityGroupIds:
+      - !Ref telnetSecurityGroup
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.ssmmessages'
+      SubnetIds: 
+        !If 
+        - uses3Subnets
+        - [ !Ref subnet1, !Ref subnet2, !Ref subnet3 ]
+        - !If
+          - uses2Subnets
+          - [ !Ref subnet1, !Ref subnet2 ]
+          - [ !Ref subnet1 ]
+      VpcId: !Ref vpcId
+      VpcEndpointType: Interface
+
+  ec2Endpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      PrivateDnsEnabled: true
+      SecurityGroupIds:
+      - !Ref telnetSecurityGroup
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.ec2'
+      SubnetIds: 
+        !If 
+        - uses3Subnets
+        - [ !Ref subnet1, !Ref subnet2, !Ref subnet3 ]
+        - !If
+          - uses2Subnets
+          - [ !Ref subnet1, !Ref subnet2 ]
+          - [ !Ref subnet1 ]
+      VpcId: !Ref vpcId
+      VpcEndpointType: Interface
+
+  ec2messagesEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      PrivateDnsEnabled: true
+      SecurityGroupIds:
+      - !Ref telnetSecurityGroup
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.ec2messages'
+      SubnetIds: 
+        !If 
+        - uses3Subnets
+        - [ !Ref subnet1, !Ref subnet2, !Ref subnet3 ]
+        - !If
+          - uses2Subnets
+          - [ !Ref subnet1, !Ref subnet2 ]
+          - [ !Ref subnet1 ]
+      VpcId: !Ref vpcId
+      VpcEndpointType: Interface
