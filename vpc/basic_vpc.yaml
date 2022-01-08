@@ -1,4 +1,39 @@
 Description: Three tiered VPC Infrastructure
+
+Metadata: 
+  AWS::CloudFormation::Interface: 
+    ParameterGroups: 
+      - Label:
+          default: "VPC"
+        Parameters:
+          - vpcName
+          - vpcCidr
+          - numAZs
+      - 
+        Label: 
+          default: "Tier 1"
+        Parameters: 
+          - tier1Name
+          - az1Tier1Cidr
+          - az2Tier1Cidr
+          - az3Tier1Cidr
+      - 
+        Label: 
+          default: "Tier 2"
+        Parameters: 
+          - tier2Name
+          - az1Tier2Cidr
+          - az2Tier2Cidr
+          - az3Tier2Cidr
+      - 
+        Label: 
+          default: "Tier 3"
+        Parameters: 
+          - tier3Name
+          - az1Tier3Cidr
+          - az2Tier3Cidr
+          - az3Tier3Cidr
+
 Parameters: 
   vpcName:
     Type: String
@@ -7,26 +42,22 @@ Parameters:
 
   tier1Name:
     Type: String
-    Description: Tier 1 suffix (Tier1 - internet facing)
-    Default: 'Tier1'
+    Description: Tier 1 suffix (Public - internet facing)
+    Default: 'PUBLIC'
     ConstraintDescription: 'Internet facing services will be placed in this tier(Load balancer, Nat Gateways, etc...)'
 
   tier2Name:
     Type: String
-    Description: Tier 2 suffix (Tier2 - application tier) suffix
+    Description: Tier 2 suffix (Private - application tier)
     Default: 'APP'
     ConstraintDescription: 'Infrastructure for application services will be placed in this tier (EC2 instances, VPC Lambda functions, etc...)'
 
   tier3Name:
     Type: String
-    Description: Tier 3 suffix (Tier2 - data tier) 
+    Description: Tier 3 suffix (Private - data tier) 
     Default: 'DATA'
     ConstraintDescription: 'Infrastructure for data storage services will be placed in this tier (RDS, etc...)'
 
-  tier3Name:
-    Type: String
-    Description: Tier 3 ()
-  
   vpcCidr:
     Type: String
     Description: VPC CIDR - Format x.x.x.x/x
@@ -161,7 +192,7 @@ Resources:
     Properties:
       VpcId: !Ref VPC
       CidrBlock: !Ref 'az1Tier1Cidr'
-      MapTier1IpOnLaunch: true
+      MapPublicIpOnLaunch: true
       AvailabilityZone: !Select [0, !GetAZs ]
       Tags:
       - Key: Name
@@ -195,7 +226,7 @@ Resources:
     Properties:
       VpcId: !Ref VPC
       CidrBlock: !If [ createAZ2, !Ref az2Tier1Cidr, !Ref AWS::NoValue ]
-      MapTier1IpOnLaunch: true
+      MapPublicIpOnLaunch: true
       AvailabilityZone: !Select [1, !GetAZs ]
       Tags:
       - Key: Name
@@ -231,7 +262,7 @@ Resources:
     Properties:
       VpcId: !Ref VPC
       CidrBlock: !If [ createAZ3, !Ref az3Tier1Cidr, !Ref AWS::NoValue ]
-      MapTier1IpOnLaunch: true
+      MapPublicIpOnLaunch: true
       AvailabilityZone: !Select [2, !GetAZs ]
       Tags:
       - Key: Name
@@ -308,8 +339,8 @@ Resources:
   az1Tier3RouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      RouteTableId: !Ref az1Tier1RouteTable
-      SubnetId: !Ref az1Tier1Subnet
+      RouteTableId: !Ref az1Tier3RouteTable
+      SubnetId: !Ref az1Tier3Subnet
 
   #Route tables - Subnet 2
 

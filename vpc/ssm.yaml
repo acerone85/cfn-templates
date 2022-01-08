@@ -1,4 +1,16 @@
 Description: Add SSM capabilities to a VPC
+
+Metadata:
+  ParameterGroups:
+    - Label:
+        default: "VPC"
+      Parameters:
+        - vpcId
+        - numAZs
+        - subnet1
+        - subnet2
+        - subnet3
+
 Parameters:
   numAZs:
     Description: 'the number of Availability zones for the VPC endpoints'
@@ -16,6 +28,8 @@ Parameters:
   subnet1:
     Description: 'The 1st subnet where to create the cloudformation resources, must be in vpcId'
     Type: AWS::EC2::Subnet::Id
+    ConstraintDescription: 'must be in vpcId'
+
 
   subnet2:
     Description: 'The 2nd subnet where to create the cloudformation resources'
